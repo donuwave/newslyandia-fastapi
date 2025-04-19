@@ -1,0 +1,7 @@
+fastapi~=0.115.11
+uvicorn
+requests
+beautifulsoup4
+apscheduler~=3.11.0
+SQLAlchemy~=2.0.39
+playwright~=1.51.0
