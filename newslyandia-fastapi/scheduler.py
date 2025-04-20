@@ -12,6 +12,7 @@ async def scheduled_job():
         print("⚠️ Предыдущая задача ещё работает, пропускаем запуск.")
         return
 
+
     async with job_lock:
         try:
             news = []

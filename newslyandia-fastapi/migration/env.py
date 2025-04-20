@@ -6,14 +6,13 @@ from sqlalchemy import pool
 from alembic import context
 
 from config.base_model import Base
+from config.settings import app_settings
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Подключи async URL из settings, либо пропиши явно
-DATABASE_URL = "postgresql+asyncpg://postgres:qwerty@localhost:5432/"
 
 target_metadata = Base.metadata
 
@@ -21,7 +20,7 @@ target_metadata = Base.metadata
 def run_migrations_offline():
     """Run migrations in offline mode."""
     context.configure(
-        url=DATABASE_URL,
+        url=app_settings.db_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},

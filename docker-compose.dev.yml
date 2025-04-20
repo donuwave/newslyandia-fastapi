@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16.2
+    restart: always
+    shm_size: 128mb
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_PASSWORD: qwerty
+      POSTGRES_USER: postgres
+      POSTGRES_DB: newslyandia
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: ./newslyandia-fastapi
+      dockerfile: Dockerfile
+    restart: on-failure
+    depends_on:
+      - db
+    env_file:
+      - ./newslyandia-fastapi/.dev.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./newslyandia-fastapi:/app
+
+  bot:
+    build:
+      context: ./newslyandia-bot
+      dockerfile: Dockerfile
+    restart: on-failure
+    depends_on:
+      - app
+    volumes:
+      - ./newslyandia-bot:/app
+    command: python main.py
+
+volumes:
+  db_data:

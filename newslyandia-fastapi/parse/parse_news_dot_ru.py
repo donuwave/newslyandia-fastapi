@@ -7,14 +7,19 @@ async def parse_news_dot_ru():
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            results = []
+
+            try:
+                browser = await p.chromium.launch(headless=True)
+            except Exception as e:
+                print(f"⚠️ Не удалось запустить Chromium: {e}")
+                return results
+
             page = await browser.new_page()
             await page.goto(url, timeout=30000)
             await page.wait_for_selector('.center-importanrt__items', timeout=30000)
 
             news_items = await page.query_selector_all(".center-importanrt__item a")
-
-            results = []
 
             for item in news_items:
                 print("📄 Парсим новость")

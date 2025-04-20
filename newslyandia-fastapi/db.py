@@ -1,10 +1,10 @@
-from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from config.settings import app_settings
 from models.news import Base
 
-DATABASE_URL = "postgresql+asyncpg://postgres:qwerty@localhost:5432/"
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(app_settings.db_url, echo=True)
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
