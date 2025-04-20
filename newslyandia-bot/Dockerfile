@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.51.0-jammy
+FROM python:3.10-slim
 
 # Рабочая папка внутри контейнера
 WORKDIR /app

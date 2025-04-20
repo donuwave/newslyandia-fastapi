@@ -36,7 +36,6 @@ services:
     volumes:
       - ./newslyandia-bot:/app
     command: python main.py
-    image: mcr.microsoft.com/playwright/python:v1.51.0-jammy
 
 volumes:
   db_data:
