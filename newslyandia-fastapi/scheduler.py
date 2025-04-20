@@ -22,6 +22,7 @@ async def scheduled_job():
 
             news.extend(news_dot_ru)
             news.extend(parse_gazeta)
+            print(news)
             print(f"📥 Получено {len(news)} новостей")
 
             if not news:

@@ -11,20 +11,34 @@ async def parse_news_gazeta():
     base_url = "https://www.gazeta.ru"
     print("🌍 Начинаем парсинг gazeta.ru")
 
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+    results = []
 
-            # 1) Главная страница
+    # 1) Запускаем playwright
+    async with async_playwright() as p:
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except Exception as e:
+            print(f"❌ Не удалось запустить браузер: {e}")
+            return results
+
+        page = await browser.new_page()
+
+        # 2) Загружаем главную
+        try:
             await safe_goto(page, base_url)
             await page.wait_for_selector('.w_col_wide', timeout=30000)
-            news_items = await page.query_selector_all('.w_col_wide')
+        except Exception as e:
+            print(f"❌ Не удалось загрузить главную страницу: {e}")
+            await browser.close()
+            return results
 
-            results = []
+        # 3) Собираем анонсы
+        items = await page.query_selector_all('.w_col_wide')
 
-            for item in news_items:
+        for item in items:
+            try:
                 print("📄 Парсим новость на главной")
+
                 a = await item.query_selector("a")
                 if not a:
                     continue
@@ -32,35 +46,41 @@ async def parse_news_gazeta():
                 href = await a.get_attribute("href") or ""
                 full_url = href if href.startswith("http") else urljoin(base_url, href)
 
-                # 2) Открываем статью
+                # 4) Открываем статью
                 article_page = await browser.new_page()
                 await safe_goto(article_page, full_url)
                 await article_page.wait_for_selector(".b_main", timeout=30000)
 
-                # 3) Заголовок
-                title_block = await article_page.query_selector("h1")
-                title = await title_block.inner_text() if title_block else "Без заголовка"
+                # 5) Парсим заголовок
+                h1 = await article_page.query_selector("h1")
+                title = await h1.inner_text() if h1 else "Без заголовка"
 
-                # 4) Интро/анонс
-                content_block = await article_page.query_selector(".intro")
-                content = await content_block.inner_text() if content_block else "Контент не найден"
+                # 6) Парсим интро
+                intro = await article_page.query_selector(".intro")
+                content = await intro.inner_text() if intro else "Контент не найден"
 
-                # 5) Картинка
+                # 7) Парсим картинку
                 img_el = await article_page.query_selector(".mainarea-wrapper img")
                 raw_src = await img_el.get_attribute("src") if img_el else None
-                image_url = urljoin(base_url, raw_src) if raw_src else None
+                img_url = urljoin(base_url, raw_src) if raw_src else None
 
                 await article_page.close()
 
                 results.append({
-                    "title": title.strip(),
-                    "url": full_url,
+                    "title":   title.strip(),
+                    "url":     full_url,
                     "content": content.strip(),
-                    "img": image_url
+                    "img":     img_url
                 })
 
-            await browser.close()
-            return results
+            except Exception as e_item:
+                print(f"⚠️ Ошибка при парсинге {full_url}: {e_item}")
+                try:
+                    await article_page.close()
+                except:
+                    pass
+                continue
 
-    except Exception as e:
-        return {"error": f"Ошибка при парсинге: {e}"}
+        await browser.close()
+
+    return results

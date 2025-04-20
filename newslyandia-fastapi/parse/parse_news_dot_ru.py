@@ -5,23 +5,23 @@ async def parse_news_dot_ru():
     url = "https://news.ru"
     print("🌍 Начинаем парсинг news.ru")
 
-    try:
-        async with async_playwright() as p:
-            results = []
+    async with async_playwright() as p:
+        results = []
 
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except Exception as e:
+            print(f"⚠️ Не удалось запустить Chromium: {e}")
+            return results
+
+        page = await browser.new_page()
+        await page.goto(url, timeout=30000)
+        await page.wait_for_selector('.center-importanrt__items', timeout=30000)
+
+        news_items = await page.query_selector_all(".center-importanrt__item a")
+
+        for item in news_items:
             try:
-                browser = await p.chromium.launch(headless=True)
-            except Exception as e:
-                print(f"⚠️ Не удалось запустить Chromium: {e}")
-                return results
-
-            page = await browser.new_page()
-            await page.goto(url, timeout=30000)
-            await page.wait_for_selector('.center-importanrt__items', timeout=30000)
-
-            news_items = await page.query_selector_all(".center-importanrt__item a")
-
-            for item in news_items:
                 print("📄 Парсим новость")
                 title = await item.inner_text()
                 href = await item.get_attribute("href")
@@ -40,9 +40,9 @@ async def parse_news_dot_ru():
                         text = await p.inner_text()
                         if text.strip():
                             content_parts.append(text.strip())
-                    content = "\n".join(content_parts)
-                else:
-                    content = "Контент не найден"
+                        content = "\n".join(content_parts)
+                    else:
+                        content = "Контент не найден"
 
                 image_block = await article_page.query_selector(".single-news__picture")
                 img_tag = await image_block.query_selector("img") if image_block else None
@@ -56,8 +56,13 @@ async def parse_news_dot_ru():
                     "img": image_url
                 })
 
-            await browser.close()
-            return results
+            except Exception as e_item:
+                print(f"⚠️ Ошибка при парсинге {full_url}: {e_item}")
+                try:
+                    await article_page.close()
+                except:
+                    pass
+                continue
 
-    except Exception as e:
-        return {"error": f"Ошибка при парсинге: {e}"}
+        await browser.close()
+        return results

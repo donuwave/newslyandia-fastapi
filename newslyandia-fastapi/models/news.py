@@ -1,7 +1,5 @@
 from sqlalchemy import Column, String, Text, Integer
-
 from config.base_model import Base
-
 
 class News(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
