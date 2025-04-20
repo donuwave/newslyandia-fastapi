@@ -3,7 +3,7 @@ from playwright.async_api import async_playwright
 
 async def parse_news_dot_ru():
     url = "https://news.ru"
-    print("🌍 Начинаем парсинг")
+    print("🌍 Начинаем парсинг news.ru")
 
     try:
         async with async_playwright() as p:

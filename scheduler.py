@@ -1,6 +1,8 @@
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from parse_news_dot_ru import parse_news_dot_ru
+
+from parse.parse_news_dot_ru import parse_news_dot_ru
+from parse.parse_news_dze import parse_news_gazeta
 from save_news_to_db import save_news_to_db
 
 job_lock = asyncio.Lock()
@@ -12,8 +14,13 @@ async def scheduled_job():
 
     async with job_lock:
         try:
-            news = await parse_news_dot_ru()
+            news = []
 
+            news_dot_ru = await parse_news_dot_ru()
+            parse_gazeta = await parse_news_gazeta()
+
+            news.extend(news_dot_ru)
+            news.extend(parse_gazeta)
             print(f"📥 Получено {len(news)} новостей")
 
             if not news:
