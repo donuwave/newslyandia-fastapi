@@ -214,6 +214,7 @@ async def create_giveaway_handler(event):
     post = await client.send_message(
         CHANNEL_ID,
         "🎉 РОЗЫГРЫШ НАЧАЛСЯ!\n\n"
+        "💰 Приз: <b>1000 ₽</b>\n\n"  # ← новая строка
         "Условия участия:\n"
         "1️⃣ Подпишитесь на канал.\n"
         "2️⃣ Оставьте комментарий под этим постом.\n\n"

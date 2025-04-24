@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     app.state.scheduler = scheduler
     print("🚀 Планировщик запущен")
 
-    yield  # <-- здесь работает приложение
+    yield
 
     print("🛑 Остановка планировщика")
 
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 async def get_news(session: AsyncSession = Depends(get_session)):
     stmt = (
         select(News)
-        .order_by(News.id.desc())  # или .order_by(desc(News.created_at)) если есть дата
+        .order_by(News.id.desc())
         .limit(30)
     )
     result = await session.execute(stmt)
