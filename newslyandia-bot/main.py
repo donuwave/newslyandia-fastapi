@@ -100,83 +100,82 @@ async def fulltext_handler(event):
 async def edit_start_handler(event):
     await event.answer()
     news_id = int(event.data.decode().split("_")[1])
-    user_states[event.sender_id] = {"state": "editing", "news_id": news_id, "step": "waiting"}
+
+    user_states[event.sender_id] = {
+        "mode":    "editing",
+        "news_id": news_id,
+        "step":    "title",
+        "title":   "",
+        "body":    "",
+        "footer":  ""
+    }
     await bot_client.send_message(
         event.chat_id,
-        "✏️ Пришлите *одним* сообщением новый контент.\n\n"
-        "Формат:\n"
-        "1-я строка — заголовок\n"
-        "пустая строка\n"
-        "2-й блок — основной текст\n"
-        "пустая строка (необязательно)\n"
-        "3-й блок — «подвал» (необязательно)",
+        "✏️ Отправьте *новый заголовок* 👇",
         parse_mode="Markdown"
     )
 
 @bot_client.on(events.NewMessage())
 async def edit_receive_handler(event):
-    state = user_states.get(event.sender_id)
-    if not state or state.get("state") != "editing":
+    st = user_states.get(event.sender_id)
+    if not st or st.get("mode") != "editing":
         return
 
-    news_id = state["news_id"]
-    news = news_cache.get(news_id)
-    if not news:
-        user_states.pop(event.sender_id, None)
-        return
+    txt = event.raw_text.strip()
 
-    parts = event.raw_text.split("\n\n")
-    if len(parts) < 2:
-        await bot_client.send_message(
-            event.chat_id,
-            "❌ Неверный формат. Нужен хотя бы заголовок + текст."
+    if st["step"] == "title":
+        if not txt:
+            return await event.respond("❌ Заголовок не может быть пустым.")
+        st["title"] = txt
+        st["step"] = "body"
+        return await event.respond("📝 Отлично! Теперь пришлите *основной текст* поста.", parse_mode="Markdown")
+
+    if st["step"] == "body":
+        if not txt:
+            return await event.respond("❌ Текст не может быть пустым.")
+        st["body"] = txt
+        st["step"] = "footer"
+        return await event.respond(
+            "📌 Пришлите футер (нижний блок).\n"
+            "Если хотите оставить только стандартный промо-футер ‒ просто отправьте «-».",
+            parse_mode="Markdown"
         )
-        return
 
-    new_title = parts[0].strip()
-    new_body  = parts[1].strip()
-    user_footer = parts[2].strip() if len(parts) >= 3 else ""
+    if st["step"] == "footer":
+        st["footer"] = "" if txt == "-" else txt
+        await show_preview_after_edit(event, st)
+        user_states.pop(event.sender_id, None)
 
-    # обновляем объект News
-    news.title = new_title
-    news.text  = new_body
+async def show_preview_after_edit(event, st):
+    news = news_cache.get(st["news_id"])
+    if not news:
+        return await event.respond("❌ Новость не найдена.")
 
-    # итоговый футер: промо + пользователь
-    if user_footer:
-        news.footer = f"\n\n{PROMO_FOOTER}\n\n{user_footer}"
-    else:
-        news.footer = f"\n\n{PROMO_FOOTER}"
+    news.title = st["title"]
+    news.text  = st["body"]
+
+    user_footer  = f"\n\n{html.escape(st['footer'])}" if st["footer"] else ""
+    news.footer  = f"{PROMO_FOOTER}\n{user_footer}"
 
     caption = (
         f"<b>{html.escape(news.title)}</b>\n\n"
-        f"{html.escape(news.text)}"
+        f"{html.escape(news.text)}\n\n"
         f"{news.footer}"
     )
     if len(caption) > 1024:
         caption = caption[:1020] + "…"
 
     kb = [
-        [Button.inline("📖 Полный текст", data=f"full_{news_id}")],
-        [Button.inline("🚀 Опубликовать", data=f"publish_{news_id}")]
+        [Button.inline("📖 Полный текст", data=f"full_{news.id}")],
+        [Button.inline("🚀 Опубликовать", data=f"publish_{news.id}")]
     ]
 
     if news.image:
-        await bot_client.send_file(
-            event.chat_id,
-            news.image,
-            caption=caption,
-            parse_mode="html",
-            buttons=kb
-        )
+        await bot_client.send_file(event.chat_id, news.image,
+                                   caption=caption, parse_mode="html", buttons=kb)
     else:
-        await bot_client.send_message(
-            event.chat_id,
-            caption,
-            parse_mode="html",
-            buttons=kb
-        )
-
-    user_states.pop(event.sender_id, None)
+        await bot_client.send_message(event.chat_id, caption,
+                                      parse_mode="html", buttons=kb)
 
 
 @bot_client.on(events.CallbackQuery(data=re.compile(b"^publish_\\d+$")))
@@ -191,8 +190,8 @@ async def publish_handler(event):
     footer = getattr(news, "footer", "")
     caption = (
         f"<b>{html.escape(news.title)}</b>\n\n"
-        f"{html.escape(news.text)}"
-        f"{footer}"        # ← вот эта строка
+        f"{html.escape(news.text)}\n\n"
+        f"{footer}"
     )
     if len(caption) > 1024:
         caption = caption[:1020] + "…"
@@ -205,7 +204,6 @@ async def publish_handler(event):
     )
 
     await event.respond("✅ Новость опубликована!")
-
 
 
 @client.on(events.NewMessage(pattern=r'^/create_giveaway$'))
