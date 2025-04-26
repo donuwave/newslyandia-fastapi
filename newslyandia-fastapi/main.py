@@ -1,15 +1,10 @@
 import asyncio
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, APIRouter, Depends
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from db import init_db, get_session
-from models import News
+from fastapi import FastAPI
+from api_v1 import router as router_v1
+from config.database import init_db
 from scheduler import start_scheduler
 
-router = APIRouter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,15 +19,6 @@ async def lifespan(app: FastAPI):
 
     print("🛑 Остановка планировщика")
 
-@router.get("/news")
-async def get_news(session: AsyncSession = Depends(get_session)):
-    stmt = (
-        select(News)
-        .order_by(News.id.desc())
-        .limit(30)
-    )
-    result = await session.execute(stmt)
-    return result.scalars().all()
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(router)
+app.include_router(router=router_v1, prefix="/api/v1")

@@ -7,11 +7,11 @@ from save_news_to_db import save_news_to_db
 
 job_lock = asyncio.Lock()
 
+
 async def scheduled_job():
     if job_lock.locked():
         print("⚠️ Предыдущая задача ещё работает, пропускаем запуск.")
         return
-
 
     async with job_lock:
         try:
@@ -34,6 +34,7 @@ async def scheduled_job():
             print("✅ Новости сохранены")
         except Exception as e:
             print(f"💥 Ошибка в задаче: {e}")
+
 
 def start_scheduler(loop: asyncio.AbstractEventLoop):
     print("🧪 start_scheduler вызван")

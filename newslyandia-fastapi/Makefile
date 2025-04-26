@@ -3,8 +3,11 @@
 HOST ?= localhost
 PORT ?= 8001
 
-run:
+run_local:
 	uvicorn main:app --reload --env-file .local.env
+
+run_dev:
+	uvicorn main:app --reload --env-file .dev.env
 
 install:
 	@echo "Подтягиваем зависимость $(LIBRARY)"
