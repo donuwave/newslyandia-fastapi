@@ -3,3 +3,6 @@ alembic_dev_revision_app:
 
 alembic_dev_upgrade_app:
 	docker-compose -f docker-compose.dev.yml run --rm app alembic upgrade head
+
+alembic_remove_folder_migration:
+	docker-compose -f docker-compose.dev.yml run --rm app alembic stamp head
