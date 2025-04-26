@@ -6,7 +6,7 @@ class News(BaseModel):
     id: int
     title: str
     text: str
-    image: str
+    image: Optional[str]
 
 class Contest(BaseModel):
     post_id: int
