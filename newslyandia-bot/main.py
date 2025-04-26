@@ -32,16 +32,20 @@ async def start_handler(event):
 @bot_client.on(events.NewMessage(pattern=r'^/news$'))
 async def show_news_list(event):
     news_list = await fetch_news()
+
     for news in news_list:
         news_cache[news.id] = news
 
+    if not news_list:
+        await event.respond("❌ Нет доступных новостей.")
+        return
+
     buttons = [
-        [Button.inline((news.title or f"#{news.id}")[:50], data=f"preview_{news.id}")]
+        [Button.inline(str((news.title or f"#{news.id}")[:50]), data=f"preview_{news.id}".encode())]
         for news in news_list
     ]
 
     await event.respond("📰 Выберите новость:", buttons=buttons)
-
 
 @bot_client.on(events.CallbackQuery(data=re.compile(b"^preview_\\d+$")))
 async def preview_handler(event):

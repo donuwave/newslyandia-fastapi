@@ -1,9 +1,9 @@
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from api_v1.news.repository import add_news
 from parse.parse_news_dot_ru import parse_news_dot_ru
 from parse.parse_news_dze import parse_news_gazeta
-from save_news_to_db import save_news_to_db
 
 job_lock = asyncio.Lock()
 
@@ -30,7 +30,7 @@ async def scheduled_job():
                 return
 
             print(f"📥 Получено {len(news)} новостей")
-            await save_news_to_db(news)
+            await add_news(news)
             print("✅ Новости сохранены")
         except Exception as e:
             print(f"💥 Ошибка в задаче: {e}")
