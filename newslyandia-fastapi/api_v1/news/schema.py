@@ -1,8 +1,10 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
 class GetNewsResponse(BaseModel):
     id: int
-    image: str
+    image: Optional[str] = None
     title: str
     text: str
