@@ -4,37 +4,32 @@ import re
 from telethon import TelegramClient, events, Button
 from telethon.errors import UserNotParticipantError
 from telethon.tl.functions.channels import GetParticipantRequest
-from telethon.tl.functions.messages import GetDiscussionMessageRequest
-from telethon.utils import get_peer_id
-from config import API_ID, API_HASH, CHANNEL_ID, BOT_TOKEN
-from fetch_news import fetch_news
-from model_news import News
+
+from fetch_news import ServiceNews
+from settings import settings
 from utils import build_full_text
 
-client = TelegramClient("user_session", API_ID, API_HASH).start()
-bot_client = TelegramClient('bot_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+bot_client = TelegramClient('bot_session', settings.API_ID, settings.API_HASH).start(bot_token=settings.BOT_TOKEN)
 
 max_size = 4096
+name_chanel = "@newslyandia"
 
-news_cache: dict[int, News] = {}
 user_states: dict[int, dict] = {}
 commentators: set[int] = set()
 POST_ID = None
-DISCUSSION_CHAT_ID = None
 DISCUSSION_MSG_ID = None
 PROMO_FOOTER = "<b>🔔 Подписывайтесь на наш канал, чтобы не пропустить важные новости. </b>"
 
+service_news = ServiceNews()
 
-@client.on(events.NewMessage(pattern=r'^/start$'))
+
+@bot_client.on(events.NewMessage(pattern=r'^/start$'))
 async def start_handler(event):
     await event.respond("👋 Привет! Напиши /news, чтобы посмотреть список новостей.")
 
 @bot_client.on(events.NewMessage(pattern=r'^/news$'))
 async def show_news_list(event):
-    news_list = await fetch_news()
-
-    for news in news_list:
-        news_cache[news.id] = news
+    news_list = await service_news.fetch_news()
 
     if not news_list:
         await event.respond("❌ Нет доступных новостей.")
@@ -52,15 +47,17 @@ async def preview_handler(event):
     await event.answer()
 
     news_id = int(event.data.decode().split("_")[1])
-    news = news_cache.get(news_id)
-    if not news:
-        return await event.respond("❌ Новость не найдена.", alert=True)
 
-    safe_text = html.escape(news.text)
+    try:
+        news_item = await service_news.fetch_news_item(news_id)
+    except Exception:
+        return await event.respond("❌ Не удалось получить новость.", alert=True)
+
+    safe_text = html.escape(news_item.text)
     full = f"\n\n{safe_text}\n\n"
     length = len(safe_text)
 
-    await bot_client.send_file(event.chat_id, file=news.image)
+    await bot_client.send_file(event.chat_id, file=news_item.image)
 
     keyboard = [
         [Button.inline("📖 Полный текст", data=f"full_{news_id}")],
@@ -83,13 +80,17 @@ def safe_chunks(text: str, step: int = max_size):
 async def fulltext_handler(event):
     await event.answer()
     news_id = int(event.data.decode().split("_")[1])
-    news = news_cache.get(news_id)
-    if not news:
+
+    try:
+        news_item = await service_news.fetch_news_item(news_id)
+    except Exception:
+        return await event.respond("❌ Не удалось получить новость.", alert=True)
+    if not news_item:
         return await event.respond("❌ Новость не найдена.", alert=True)
 
-    full = build_full_text(news)
+    full = build_full_text(news_item)
 
-    entity = await client.get_entity(event.chat_id)
+    entity = await bot_client.get_entity(event.chat_id)
     if getattr(entity, "bot", False):
         return await event.respond("❌ Боту нельзя прислать длинный текст.", alert=True)
 
@@ -97,7 +98,7 @@ async def fulltext_handler(event):
         try:
             await bot_client.send_message(event.chat_id, chunk, parse_mode="html")
         except Exception:
-            await client.send_message(event.chat_id, f"<code>{html.escape(chunk)}</code>", parse_mode="html")
+            await bot_client.send_message(event.chat_id, f"<code>{html.escape(chunk)}</code>", parse_mode="html")
 
 
 @bot_client.on(events.CallbackQuery(data=re.compile(b"^edit_\\d+$")))
@@ -111,7 +112,6 @@ async def edit_start_handler(event):
         "step":    "title",
         "title":   "",
         "body":    "",
-        "footer":  ""
     }
     await bot_client.send_message(
         event.chat_id,
@@ -138,33 +138,22 @@ async def edit_receive_handler(event):
         if not txt:
             return await event.respond("❌ Текст не может быть пустым.")
         st["body"] = txt
-        st["step"] = "footer"
-        return await event.respond(
-            "📌 Пришлите футер (нижний блок).\n"
-            "Если хотите оставить только стандартный промо-футер ‒ просто отправьте «-».",
-            parse_mode="Markdown"
-        )
-
-    if st["step"] == "footer":
-        st["footer"] = "" if txt == "-" else txt
         await show_preview_after_edit(event, st)
         user_states.pop(event.sender_id, None)
 
 async def show_preview_after_edit(event, st):
-    news = news_cache.get(st["news_id"])
+    news = await service_news.fetch_news_item(st["news_id"])
     if not news:
         return await event.respond("❌ Новость не найдена.")
 
     news.title = st["title"]
     news.text  = st["body"]
 
-    user_footer  = f"\n\n{html.escape(st['footer'])}" if st["footer"] else ""
-    news.footer  = f"{PROMO_FOOTER}\n{user_footer}"
-
     caption = (
         f"<b>{html.escape(news.title)}</b>\n\n"
         f"{html.escape(news.text)}\n\n"
-        f"{news.footer}"
+        f"{PROMO_FOOTER}\n\n"
+        f"{name_chanel}"
     )
     if len(caption) > 1024:
         caption = caption[:1020] + "…"
@@ -187,21 +176,23 @@ async def publish_handler(event):
     await event.answer()
 
     news_id = int(event.data.decode().split("_")[1])
-    news = news_cache.get(news_id)
-    if not news:
-        return await event.respond("❌ Новость не найдена.", alert=True)
 
-    footer = getattr(news, "footer", "")
+    try:
+        news = await service_news.fetch_news_item(news_id)  # ← берём из сервиса
+    except Exception:
+        return await event.respond("❌ Не удалось получить новость.", alert=True)
+
     caption = (
         f"<b>{html.escape(news.title)}</b>\n\n"
         f"{html.escape(news.text)}\n\n"
-        f"{footer}"
+        f"{PROMO_FOOTER}\n\n"
+        f"{name_chanel}"
     )
     if len(caption) > 1024:
         caption = caption[:1020] + "…"
 
-    await client.send_file(
-        CHANNEL_ID,
+    await bot_client.send_file(
+        settings.CHANNEL_ID,
         news.image,
         caption=caption,
         parse_mode="html"
@@ -209,56 +200,50 @@ async def publish_handler(event):
 
     await event.respond("✅ Новость опубликована!")
 
-
-@client.on(events.NewMessage(pattern=r'^/create_giveaway$'))
+@bot_client.on(events.NewMessage(pattern=r'^/create_giveaway$'))
 async def create_giveaway_handler(event):
-    global POST_ID, DISCUSSION_CHAT_ID, DISCUSSION_MSG_ID
-    post = await client.send_message(
-        CHANNEL_ID,
+    global POST_ID, DISCUSSION_MSG_ID, commentators
+    post = await bot_client.send_message(
+        settings.CHANNEL_ID,
         "🎉 <b>РОЗЫГРЫШ!</b> 🎉\n"
-        ""
-        "💰 <b>Приз:</b> <u>3000 ₽</u> на карту или любую платёжную систему  \n"
+        "💰 <b>Приз:</b> 3000 ₽ на карту или любую платёжную систему\n"
         "⏳ <b>Итоги:</b> 3 мая\n\n"
-        ""
-        "<b>Условия участия:</b>\n"
-        "1️⃣ Подпишитесь на наш канал  \n"
-        "2️⃣ Оставьте <b>любой</b> комментарий под этим постом  \n"
+        "1️⃣ Подпишитесь на наш канал\n"
+        "2️⃣ Оставьте <b>любой</b> комментарий под этим постом\n"
         "3️⃣ Дождитесь финального поста — победитель выбирается случайно\n\n"
-        "📝 <i>Больше комментариев — больше шансов!</i> (бот отсеивает спам)\n\n"
-        "👇 <b>Нажмите «Комментировать» и участвуйте прямо сейчас!</b>\n"
-        "",
+        "👇 <b>Комментируйте прямо сейчас!</b>",
         parse_mode="html"
     )
-
     POST_ID = post.id
     commentators.clear()
 
-    result = await client(GetDiscussionMessageRequest(
-        peer=CHANNEL_ID,
-        msg_id=POST_ID
-    ))
-    discussion_msg = result.messages[1] if len(result.messages) > 1 else result.messages[0]
-    DISCUSSION_CHAT_ID = get_peer_id(discussion_msg.peer_id)
-    DISCUSSION_MSG_ID = discussion_msg.id
+    discussion_msg = await bot_client.send_message(
+        settings.GROUP_CHAT_ID,
+        f"🗨️ Обсуждение к посту №{POST_ID}."
+    )
+    DISCUSSION_MSG_ID = discussion_msg.id + 1
+    await bot_client.delete_messages(
+        entity=settings.GROUP_CHAT_ID,
+        message_ids=discussion_msg.id
+    )
 
-    await event.respond("✅ Пост с розыгрышем опубликован!")
+    await event.respond("✅ Розыгрыш запущен!")
 
-@client.on(events.NewMessage())
+@bot_client.on(events.NewMessage(chats=settings.GROUP_CHAT_ID))
 async def catch_comment_handler(event):
-    if (event.chat_id == DISCUSSION_CHAT_ID and
-        event.reply_to_msg_id == DISCUSSION_MSG_ID):
+    if DISCUSSION_MSG_ID and event.reply_to_msg_id == DISCUSSION_MSG_ID:
         commentators.add(event.sender_id)
 
+# Проверка подписки
 async def is_subscribed(user_id):
     try:
-        await client(GetParticipantRequest(channel=CHANNEL_ID, participant=user_id))
+        await bot_client(GetParticipantRequest(channel=settings.CHANNEL_ID, participant=user_id))
         return True
     except UserNotParticipantError:
         return False
 
+# Фильтрация только подписанных пользователей
 async def filter_subscribed_users():
-    global commentators
-
     subscribed_users = []
     for user_id in commentators:
         if await is_subscribed(user_id):
@@ -266,9 +251,10 @@ async def filter_subscribed_users():
     return subscribed_users
 
 
-@client.on(events.NewMessage(pattern=r'^/select_winner$'))
+# Выбор победителя
+@bot_client.on(events.NewMessage(pattern=r'^/select_winner$'))
 async def select_winner_handler(event):
-    global POST_ID, DISCUSSION_CHAT_ID, DISCUSSION_MSG_ID
+    global POST_ID, commentators
     if not POST_ID or not commentators:
         return await event.respond("❌ Нет активного розыгрыша или участников.")
 
@@ -278,36 +264,33 @@ async def select_winner_handler(event):
         return await event.respond("❌ Нет ни одного подписчика.")
 
     winner_id = random.choice(success_users)
-    user = await client.get_entity(winner_id)
+    user = await bot_client.get_entity(winner_id)
     display_name = (
-        user.username
-        or " ".join(filter(None, [getattr(user, "first_name", ""), getattr(user, "last_name", "")]))
-        or "Пользователь"
+        user.username or
+        " ".join(filter(None, [getattr(user, "first_name", ""), getattr(user, "last_name", "")])) or
+        "Пользователь"
     )
 
     try:
-        await client.delete_messages(CHANNEL_ID, POST_ID)
-    except:
-        pass
+        await bot_client.delete_messages(settings.CHANNEL_ID, POST_ID)
+    except Exception as e:
+        print(f"Ошибка при удалении поста: {e}")
 
     text = (
         "🏆 РОЗЫГРЫШ ЗАВЕРШЁН!\n\n"
         f"🎉 Победитель: <a href='tg://user?id={winner_id}'>{display_name}</a>\n\n"
         "Спасибо всем за участие!"
     )
-    await client.send_message(CHANNEL_ID, text, parse_mode="html")
+    await bot_client.send_message(settings.CHANNEL_ID, text, parse_mode="html")
 
-    # сброс
     POST_ID = None
-    DISCUSSION_CHAT_ID = None
-    DISCUSSION_MSG_ID = None
     commentators.clear()
 
 # ——————————————————————————————————————————————
 def main():
     print("🤖 Бот (Telethon) запущен")
-    client.run_until_disconnected()
     bot_client.run_until_disconnected()
+
 
 if __name__ == "__main__":
     main()

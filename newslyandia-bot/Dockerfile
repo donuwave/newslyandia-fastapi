@@ -11,4 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Команда запуска
-CMD ["python", "main.py"]
+CMD ["sh", "-c", "ENV_FILE=.dev.env python main.py"]
+

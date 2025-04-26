@@ -32,6 +32,8 @@ services:
       context: ./newslyandia-bot
       dockerfile: Dockerfile
     restart: on-failure
+    env_file:
+      - ./newslyandia-bot/.dev.env
     depends_on:
       - app
     volumes:

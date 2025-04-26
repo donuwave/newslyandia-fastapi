@@ -2,8 +2,8 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from api_v1.news.repository import add_news
-from parse.parse_news_dot_ru import parse_news_dot_ru
-from parse.parse_news_dze import parse_news_gazeta
+from sheduler.parse.parse_news_dot_ru import parse_news_dot_ru
+from sheduler.parse.parse_news_dze import parse_news_gazeta
 
 job_lock = asyncio.Lock()
 

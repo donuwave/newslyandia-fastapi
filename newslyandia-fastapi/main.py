@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from api_v1 import router as router_v1
 from config.database import init_db
-from scheduler import start_scheduler
+from sheduler.scheduler import start_scheduler
 
 
 @asynccontextmanager
