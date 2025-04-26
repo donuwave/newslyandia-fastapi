@@ -5,7 +5,9 @@ from telethon import TelegramClient, events, Button
 from telethon.errors import UserNotParticipantError
 from telethon.tl.functions.channels import GetParticipantRequest
 
+from fetch_contest import ServiceContest
 from fetch_news import ServiceNews
+from model_news import Contest
 from settings import settings
 from utils import build_full_text
 
@@ -15,12 +17,10 @@ max_size = 4096
 name_chanel = "@newslyandia"
 
 user_states: dict[int, dict] = {}
-commentators: set[int] = set()
-POST_ID = None
-DISCUSSION_MSG_ID = None
 PROMO_FOOTER = "<b>🔔 Подписывайтесь на наш канал, чтобы не пропустить важные новости. </b>"
 
 service_news = ServiceNews()
+service_contest = ServiceContest()
 
 
 @bot_client.on(events.NewMessage(pattern=r'^/start$'))
@@ -99,7 +99,6 @@ async def fulltext_handler(event):
             await bot_client.send_message(event.chat_id, chunk, parse_mode="html")
         except Exception:
             await bot_client.send_message(event.chat_id, f"<code>{html.escape(chunk)}</code>", parse_mode="html")
-
 
 @bot_client.on(events.CallbackQuery(data=re.compile(b"^edit_\\d+$")))
 async def edit_start_handler(event):
@@ -202,7 +201,6 @@ async def publish_handler(event):
 
 @bot_client.on(events.NewMessage(pattern=r'^/create_giveaway$'))
 async def create_giveaway_handler(event):
-    global POST_ID, DISCUSSION_MSG_ID, commentators
     post = await bot_client.send_message(
         settings.CHANNEL_ID,
         "🎉 <b>РОЗЫГРЫШ!</b> 🎉\n"
@@ -214,25 +212,27 @@ async def create_giveaway_handler(event):
         "👇 <b>Комментируйте прямо сейчас!</b>",
         parse_mode="html"
     )
-    POST_ID = post.id
-    commentators.clear()
 
     discussion_msg = await bot_client.send_message(
         settings.GROUP_CHAT_ID,
-        f"🗨️ Обсуждение к посту №{POST_ID}."
+        f"🗨️ Обсуждение к посту №{post.id}."
     )
-    DISCUSSION_MSG_ID = discussion_msg.id + 1
     await bot_client.delete_messages(
         entity=settings.GROUP_CHAT_ID,
         message_ids=discussion_msg.id
     )
 
+    contest = Contest(post_id=post.id, discussion_msg_id=discussion_msg.id + 1, commentators=[], is_active=True)
+
+    await service_contest.create_contest(data=contest)
     await event.respond("✅ Розыгрыш запущен!")
 
 @bot_client.on(events.NewMessage(chats=settings.GROUP_CHAT_ID))
 async def catch_comment_handler(event):
-    if DISCUSSION_MSG_ID and event.reply_to_msg_id == DISCUSSION_MSG_ID:
-        commentators.add(event.sender_id)
+    contest = await service_contest.fetch_active_contest()
+
+    if contest.discussion_msg_id and event.reply_to_msg_id == contest.discussion_msg_id:
+        await service_contest.add_commentator(user_id=event.sender_id)
 
 # Проверка подписки
 async def is_subscribed(user_id):
@@ -242,25 +242,28 @@ async def is_subscribed(user_id):
     except UserNotParticipantError:
         return False
 
-# Фильтрация только подписанных пользователей
-async def filter_subscribed_users():
-    subscribed_users = []
-    for user_id in commentators:
-        if await is_subscribed(user_id):
-            subscribed_users.append(user_id)
-    return subscribed_users
-
 
 # Выбор победителя
 @bot_client.on(events.NewMessage(pattern=r'^/select_winner$'))
 async def select_winner_handler(event):
-    global POST_ID, commentators
-    if not POST_ID or not commentators:
+    contest = await service_contest.fetch_active_contest()
+
+    if not contest.post_id or not contest.commentators:
         return await event.respond("❌ Нет активного розыгрыша или участников.")
 
-    success_users = await filter_subscribed_users()
+    success_users = []
+    for user_id in contest.commentators:
+        if await is_subscribed(user_id):
+            success_users.append(user_id)
 
     if len(success_users) == 0:
+        await service_contest.finish_contest()
+
+        try:
+            await bot_client.delete_messages(settings.CHANNEL_ID, contest.post_id)
+        except Exception as e:
+            print(f"Ошибка при удалении поста: {e}")
+
         return await event.respond("❌ Нет ни одного подписчика.")
 
     winner_id = random.choice(success_users)
@@ -272,7 +275,7 @@ async def select_winner_handler(event):
     )
 
     try:
-        await bot_client.delete_messages(settings.CHANNEL_ID, POST_ID)
+        await bot_client.delete_messages(settings.CHANNEL_ID, contest.post_id)
     except Exception as e:
         print(f"Ошибка при удалении поста: {e}")
 
@@ -283,8 +286,7 @@ async def select_winner_handler(event):
     )
     await bot_client.send_message(settings.CHANNEL_ID, text, parse_mode="html")
 
-    POST_ID = None
-    commentators.clear()
+    await service_contest.finish_contest()
 
 # ——————————————————————————————————————————————
 def main():

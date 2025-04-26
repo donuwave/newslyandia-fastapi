@@ -5,7 +5,7 @@ import httpx
 from model_news import News
 from settings import settings
 
-TTL = 300                       # секунды жизни кэша (5 минут)
+TTL = 300
 
 class ServiceNews:
     _cache: dict[str, tuple[float, Any]] = {}
