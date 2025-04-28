@@ -22,14 +22,12 @@ async def scheduled_job():
 
             news.extend(news_dot_ru)
             news.extend(parse_gazeta)
-            print(news)
             print(f"📥 Получено {len(news)} новостей")
 
             if not news:
                 print("⚠️ Новостей не найдено")
                 return
 
-            print(f"📥 Получено {len(news)} новостей")
             await add_news(news)
             print("✅ Новости сохранены")
         except Exception as e:
