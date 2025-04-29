@@ -17,9 +17,11 @@ async def parse_news_dot_ru():
 
         page = await browser.new_page()
         await page.goto(url, timeout=30000)
-        await page.wait_for_selector(".center-importanrt__items", timeout=30000)
+        await page.wait_for_selector(".main-feed", timeout=30000)
 
-        news_items = await page.query_selector_all(".center-importanrt__item a")
+        await page.wait_for_selector(".main-feed__item ", timeout=30000)
+
+        news_items = await page.query_selector_all(".main-feed__item")
 
         for item in news_items:
             try:
@@ -38,11 +40,9 @@ async def parse_news_dot_ru():
                 )
 
                 await article_page.wait_for_selector(
-                    ".single-news__all-text", timeout=30000
+                    ".post-detail__content", timeout=30000
                 )
-                content_div = await article_page.query_selector(
-                    ".single-news__all-text"
-                )
+                content_div = await article_page.query_selector(".post-detail__content")
 
                 if content_div:
                     paragraphs = await content_div.query_selector_all("p")
@@ -57,7 +57,7 @@ async def parse_news_dot_ru():
                     else:
                         content = "Контент не найден"
 
-                image_block = await article_page.query_selector(".single-news__picture")
+                image_block = await article_page.query_selector(".post-detail__img")
                 img_tag = (
                     await image_block.query_selector("img") if image_block else None
                 )
