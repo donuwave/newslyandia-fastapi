@@ -11,7 +11,7 @@ from .service import ContestService
 router = APIRouter(tags=["contest"])
 
 
-@router.get("", response_model=Array(ContestRead))
+@router.get("")
 async def get_contest_list(
     contest_service: Annotated[ContestService, Depends(get_contest_service)],
 ):
