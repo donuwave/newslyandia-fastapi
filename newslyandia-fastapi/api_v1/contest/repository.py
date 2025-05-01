@@ -12,6 +12,11 @@ from api_v1.contest.schema import ContestRead, ContestCreate, ContestUpdate
 class ContestRepository:
     db_session: AsyncSession
 
+    async def get_contest_list(self):
+        stmt = select(Contest).order_by(Contest.id.desc())
+        result = await self.db_session.execute(stmt)
+        return result.scalars().all()
+
     async def get_contest(self, post_id: int) -> ContestRead:
         query = select(Contest).where(Contest.post_id == post_id)
 

@@ -1,3 +1,4 @@
+from multiprocessing.managers import Array
 from typing import Annotated
 
 from fastapi import APIRouter
@@ -8,6 +9,13 @@ from .schema import ContestRead, ContestCreate, ContestUpdate
 from .service import ContestService
 
 router = APIRouter(tags=["contest"])
+
+
+@router.get("", response_model=Array(ContestRead))
+async def get_contest_list(
+    contest_service: Annotated[ContestService, Depends(get_contest_service)],
+):
+    return await contest_service.get_contest_list()
 
 
 @router.get("/{post_id}", response_model=ContestRead)

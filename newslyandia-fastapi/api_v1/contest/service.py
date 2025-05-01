@@ -11,6 +11,9 @@ class ContestService:
     async def get_contest(self, post_id: int) -> ContestRead:
         return await self.contest_repository.get_contest(post_id=post_id)
 
+    async def get_contest_list(self) -> ContestRead:
+        return await self.contest_repository.get_contest_list()
+
     async def get_contest_active(self) -> ContestRead:
         return await self.contest_repository.get_contest_active()
 
