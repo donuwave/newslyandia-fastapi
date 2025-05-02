@@ -177,13 +177,15 @@ async def publish_handler(event):
     news_id = int(event.data.decode().split("_")[1])
 
     try:
-        news = await service_news.fetch_news_item(news_id)  # ← берём из сервиса
+        news = await service_news.fetch_news_item(news_id)
     except Exception:
         return await event.respond("❌ Не удалось получить новость.", alert=True)
 
+    st = user_states.get(event.sender_id)
+
     caption = (
-        f"<b>{html.escape(news.title)}</b>\n\n"
-        f"{html.escape(news.text)}\n\n"
+        f"<b>{html.escape(st['title'])}</b>\n\n"
+        f"{html.escape(st['text'])}\n\n"
         f"{PROMO_FOOTER}\n\n"
         f"{name_chanel}"
     )
