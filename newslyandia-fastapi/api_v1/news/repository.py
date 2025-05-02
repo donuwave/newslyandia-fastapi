@@ -29,8 +29,6 @@ class NewsRepository:
         return session.scalar()
 
     async def create_news_item(self, news_item: CreateNews):
-        print(news_item)
-
         result = await self.db_session.execute(
             select(News).where(News.deleted_at == None).where(News.url == news_item.url)
         )
