@@ -25,6 +25,8 @@ services:
     depends_on:
       db:
         condition: service_started
+    environment:
+      - PYTHONPATH=/app
     env_file:
       - ./newslyandia-fastapi/.dev.env
     ports:
