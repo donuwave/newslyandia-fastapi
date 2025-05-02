@@ -138,7 +138,6 @@ async def edit_receive_handler(event):
             return await event.respond("❌ Текст не может быть пустым.")
         st["body"] = txt
         await show_preview_after_edit(event, st)
-        user_states.pop(event.sender_id, None)
 
 async def show_preview_after_edit(event, st):
     news = await service_news.fetch_news_item(st["news_id"])
@@ -181,11 +180,15 @@ async def publish_handler(event):
     except Exception:
         return await event.respond("❌ Не удалось получить новость.", alert=True)
 
-    st = user_states.get(event.sender_id)
+    st = user_states.pop(event.sender_id, None)
+
+    # окончательные заголовок и текст
+    title = (st and st.get("title")) or news.title
+    body  = (st and (st.get("body") or st.get("text"))) or news.text
 
     caption = (
-        f"<b>{html.escape(st['title'])}</b>\n\n"
-        f"{html.escape(st['text'])}\n\n"
+        f"<b>{html.escape(title)}</b>\n\n"
+        f"{html.escape(body)}\n\n"
         f"{PROMO_FOOTER}\n\n"
         f"{name_chanel}"
     )
