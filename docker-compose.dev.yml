@@ -31,8 +31,6 @@ services:
       - ./newslyandia-fastapi/.dev.env
     ports:
       - "8000:8000"
-    volumes:
-      - ./newslyandia-fastapi:/app
 
   bot:
     build:
