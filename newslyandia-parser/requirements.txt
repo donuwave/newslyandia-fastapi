@@ -1,0 +1,13 @@
+fastapi~=0.115.11
+uvicorn
+requests~=2.32.3
+beautifulsoup4~=4.13.4
+apscheduler~=3.11.0
+SQLAlchemy~=2.0.39
+playwright~=1.51.0
+pydantic-settings~=2.8.1
+pydantic~=2.10.6
+alembic~=1.15.1
+asyncpg
+black
+httpx~=0.28.1

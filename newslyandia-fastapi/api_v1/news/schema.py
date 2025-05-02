@@ -8,3 +8,10 @@ class GetNewsResponse(BaseModel):
     image: Optional[str] = None
     title: str
     text: str
+
+
+class CreateNews(BaseModel):
+    url: str
+    image: Optional[str] = None
+    title: str
+    text: str

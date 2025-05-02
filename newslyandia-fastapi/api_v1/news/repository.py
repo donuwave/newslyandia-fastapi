@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.database import AsyncSessionLocal
 from .model import News
-from .schema import GetNewsResponse
+from .schema import GetNewsResponse, CreateNews
 
 
 @dataclass
@@ -29,6 +28,30 @@ class NewsRepository:
         session = await self.db_session.execute(query)
         return session.scalar()
 
+    async def create_news_item(self, news_item: CreateNews):
+        print(news_item)
+
+        result = await self.db_session.execute(
+            select(News).where(News.deleted_at == None).where(News.url == news_item.url)
+        )
+
+        exist = result.scalar_one_or_none()
+
+        if exist:
+            return
+
+        print("Создание новости!!!")
+        news = News(
+            title=news_item.title,
+            url=news_item.url,
+            text=news_item.text,
+            image=news_item.image,
+            deleted_at=None,
+        )
+        self.db_session.add(news)
+        await self.db_session.flush()
+        await self.db_session.commit()
+
     async def delete_news(self, news_id: int):
         result = await self.db_session.execute(select(News).where(News.id == news_id))
         news = result.scalar_one_or_none()
@@ -36,26 +59,3 @@ class NewsRepository:
         if news:
             news.deleted_at = datetime.datetime.utcnow()
             await self.db_session.commit()
-
-
-async def add_news(news_list: list[dict]):
-    async with AsyncSessionLocal() as session:
-        for item in news_list:
-            result = await session.execute(
-                select(News)
-                .where(News.deleted_at == None)
-                .where(News.url == item["url"])
-            )
-            exists = result.scalar_one_or_none()
-            if exists:
-                continue
-
-            news = News(
-                title=item["title"],
-                url=item["url"],
-                text=item["content"],
-                image=item["img"],
-                deleted_at=None,
-            )
-            session.add(news)
-        await session.commit()

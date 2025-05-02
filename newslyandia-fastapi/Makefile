@@ -1,10 +1,10 @@
 .DEFAULT_GOAL := help
 
 HOST ?= localhost
-PORT ?= 8001
+PORT ?= 8000
 
 run_local:
-	uvicorn main:app --reload --env-file .local.env
+	uvicorn main:app --reload --env-file .local.env --port ${PORT}
 
 run_dev:
 	uvicorn main:app --reload --env-file .dev.env

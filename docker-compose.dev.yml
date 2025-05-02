@@ -40,5 +40,57 @@ services:
       - ./newslyandia-bot:/app
     command: python main.py
 
+  parser_1:
+    build:
+      context: ./newslyandia-parser
+      dockerfile: Dockerfile
+    restart: on-failure
+    env_file:
+      - ./newslyandia-parser/.dev.env
+    environment:
+      - NEWS_LINK=https://news.ru
+    depends_on:
+      - app
+    volumes:
+      - ./newslyandia-parser:/app
+    ports:
+      - "8003:8003"
+    command: uvicorn main:app --host 0.0.0.0 --port 8003 --env-file .dev.env
+
+
+  parser_2:
+    build:
+      context: ./newslyandia-parser
+      dockerfile: Dockerfile
+    restart: on-failure
+    env_file:
+      - ./newslyandia-parser/.dev.env
+    environment:
+      - NEWS_LINK=https://www.vesti.ru
+    depends_on:
+      - app
+    volumes:
+      - ./newslyandia-parser:/app
+    ports:
+      - "8004:8004"
+    command: uvicorn main:app --host 0.0.0.0 --port 8004 --env-file .dev.env
+
+  ollama:
+    cpus: "8.0"
+    mem_limit: 8g
+    image: ollama/ollama
+    build:
+      context: ./newslyandia-model
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: 2
+      OLLAMA_DEBUG: true
+      OLLAMA_LLM_LIBRARY: "llama"
+      OLLAMA_FORCE_CPU: true
+
 volumes:
   db_data:
+  ollama_data:
