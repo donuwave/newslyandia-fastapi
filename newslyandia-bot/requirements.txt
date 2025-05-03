@@ -4,3 +4,5 @@ telethon
 pydantic
 pydantic-settings
 python-dotenv
+fastapi~=0.115.11
+uvicorn

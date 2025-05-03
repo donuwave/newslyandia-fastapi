@@ -3,7 +3,7 @@ from typing import Optional, Any, List
 
 import httpx
 from model_news import News
-from settings import settings
+from config.settings import settings
 
 TTL = 300
 
@@ -14,7 +14,7 @@ class ServiceNews:
     @classmethod
     async def _get_json(self, url: str) -> Any:
         ts, data = self._cache.get(url, (0, None))
-        if time.time() - ts < TTL:              # кэш ещё жив
+        if time.time() - ts < TTL:
             return data
 
         async with httpx.AsyncClient() as client:
@@ -22,10 +22,9 @@ class ServiceNews:
             r.raise_for_status()
             data = r.json()
 
-        self._cache[url] = (time.time(), data)   # обновляем кэш
+        self._cache[url] = (time.time(), data)
         return data
 
-    # ------------------- публичные методы -------------------
 
     @classmethod
     async def fetch_news(self) -> List[News]:
@@ -37,7 +36,6 @@ class ServiceNews:
         raw = await self._get_json(f"{self.base_url}/news/{news_id}")
         return News(**raw)
 
-    # ------------------- вспом. операции --------------------
 
     @classmethod
     def invalidate(self, news_id: Optional[int] = None) -> None:

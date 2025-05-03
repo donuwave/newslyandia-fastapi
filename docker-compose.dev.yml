@@ -31,13 +31,14 @@ services:
       context: ./newslyandia-bot
       dockerfile: Dockerfile
     restart: on-failure
-    env_file:
-      - ./newslyandia-bot/.dev.env
     depends_on:
       - app
+    env_file:
+      - ./newslyandia-bot/.dev.env
     volumes:
       - ./newslyandia-bot:/app
-    command: python main.py
+    ports:
+      - "8001:8001"
 
   parser_1:
     build:
@@ -74,7 +75,7 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8004 --env-file .dev.env
 
   ollama:
-    cpus: "6.0"
+    cpus: "8.0"
     mem_limit: 8g
     image: ollama/ollama
     build:

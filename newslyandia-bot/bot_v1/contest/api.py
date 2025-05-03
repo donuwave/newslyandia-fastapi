@@ -1,10 +1,10 @@
 import time
-from typing import Any, List
+from typing import Any
 
 import httpx
 
 from model_news import Contest, ContestUpdate
-from settings import settings
+from config.settings import settings
 
 TTL = 300
 
