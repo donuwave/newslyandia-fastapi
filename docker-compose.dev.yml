@@ -17,20 +17,14 @@ services:
       context: ./newslyandia-fastapi
       dockerfile: Dockerfile
     restart: on-failure
-    working_dir: /app
-    command: >
-      bash -c "
-        alembic upgrade head &&
-        uvicorn main:app --host 0.0.0.0 --port 8000"
     depends_on:
-      db:
-        condition: service_started
-    environment:
-      - PYTHONPATH=/app
+      - db
     env_file:
       - ./newslyandia-fastapi/.dev.env
     ports:
       - "8000:8000"
+    volumes:
+      - ./newslyandia-fastapi:/app
 
   bot:
     build:
@@ -62,7 +56,6 @@ services:
       - "8003:8003"
     command: uvicorn main:app --host 0.0.0.0 --port 8003 --env-file .dev.env
 
-
   parser_2:
     build:
       context: ./newslyandia-parser
@@ -91,9 +84,14 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      OLLAMA_NUM_PARALLEL: 2
+      OLLAMA_NUM_PARALLEL: "2"
       OLLAMA_LLM_LIBRARY: "llama"
       OLLAMA_FORCE_CPU: "true"
+    command: >
+      bash -c "
+        ollama pull llama3:8b &&
+        ollama serve --host 0.0.0.0 --port 11434
+      "
 
 volumes:
   db_data:

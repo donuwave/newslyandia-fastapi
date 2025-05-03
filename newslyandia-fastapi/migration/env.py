@@ -8,7 +8,8 @@ from alembic import context
 
 from config.base_model import Base
 from config.settings import app_settings
-
+from api_v1.news import News
+from api_v1.contest import Contest
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
