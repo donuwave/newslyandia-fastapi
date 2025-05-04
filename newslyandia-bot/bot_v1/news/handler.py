@@ -17,7 +17,6 @@ news_service = NewsServie()
 
 @bot_client.on(events.NewMessage(from_users=settings.CHANEL_ADMINS, pattern=r'^/news$'))
 async def show_news_list(event):
-    print(event.sender_id)
     await news_service.show_news_list(event)
 
 @bot_client.on(events.CallbackQuery(data=re.compile(b"^preview_\\d+$")))

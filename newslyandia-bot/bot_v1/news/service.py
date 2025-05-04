@@ -9,7 +9,6 @@ from config.settings import settings
 from main import bot_client
 
 
-PROMO_FOOTER = "<b>🔔 Подписывайтесь на наш канал, чтобы не пропустить важные новости. </b>"
 name_chanel = "@newslyandia"
 
 
@@ -88,16 +87,16 @@ class NewsServie:
         await event.answer()
         news_id = int(event.data.decode().split("_")[1])
 
+        # Уберём шаг с заголовком — сразу переходим к редактированию тела
         self.user_states[event.sender_id] = {
             "mode": "editing",
             "news_id": news_id,
-            "step": "title",
-            "title": "",
+            "step": "body",
             "body": "",
         }
         await bot_client.send_message(
             event.chat_id,
-            "✏️ Отправьте *новый заголовок* 👇",
+            "📝 Отправьте *новый текст* поста.",
             parse_mode="Markdown"
         )
 
@@ -107,50 +106,47 @@ class NewsServie:
             return
 
         txt = event.raw_text.strip()
+        if not txt:
+            return await event.respond("❌ Текст не может быть пустым.")
 
-        if st["step"] == "title":
-            if not txt:
-                return await event.respond("❌ Заголовок не может быть пустым.")
-            st["title"] = txt
-            st["step"] = "body"
-            return await event.respond("📝 Отлично! Теперь пришлите *основной текст* поста.", parse_mode="Markdown")
+        # Записываем новый body и сразу показываем превью с промо
+        st["body"] = txt
+        news = await self.service_news.fetch_news_item(st["news_id"])
+        if not news:
+            return await event.respond("❌ Новость не найдена.", alert=True)
 
-        if st["step"] == "body":
-            if not txt:
-                return await event.respond("❌ Текст не может быть пустым.")
-            st["body"] = txt
+        news.text = st["body"]
 
-            news = await self.service_news.fetch_news_item(st["news_id"])
-            if not news:
-                return await event.respond("❌ Новость не найдена.")
+        caption = (
+            f"{html.escape(news.text)}\n\n"
+            f"{name_chanel}"
+        )
+        if len(caption) > 1024:
+            caption = caption[:1020] + "…"
 
-            news.title = st["title"]
-            news.text = st["body"]
+        kb = [
+            [Button.inline("📖 Полный текст", data=f"full_{news.id}")],
+            [Button.inline("🚀 Опубликовать", data=f"publish_{news.id}")]
+        ]
 
-            caption = (
-                f"<b>{html.escape(news.title)}</b>\n\n"
-                f"{html.escape(news.text)}\n\n"
-                f"{PROMO_FOOTER}\n\n"
-                f"{name_chanel}"
+        if news.image:
+            await bot_client.send_file(
+                event.chat_id,
+                news.image,
+                caption=caption,
+                parse_mode="html",
+                buttons=kb
             )
-            if len(caption) > 1024:
-                caption = caption[:1020] + "…"
-
-            kb = [
-                [Button.inline("📖 Полный текст", data=f"full_{news.id}")],
-                [Button.inline("🚀 Опубликовать", data=f"publish_{news.id}")]
-            ]
-
-            if news.image:
-                await bot_client.send_file(event.chat_id, news.image,
-                                           caption=caption, parse_mode="html", buttons=kb)
-            else:
-                await bot_client.send_message(event.chat_id, caption,
-                                              parse_mode="html", buttons=kb)
+        else:
+            await bot_client.send_message(
+                event.chat_id,
+                caption,
+                parse_mode="html",
+                buttons=kb
+            )
 
     async def publish_news_item(self, event):
         await event.answer()
-
         news_id = int(event.data.decode().split("_")[1])
 
         try:
@@ -160,13 +156,10 @@ class NewsServie:
 
         st = self.user_states.pop(event.sender_id, None)
 
-        title = (st and st.get("title")) or news.title
-        body = (st and (st.get("body") or st.get("text"))) or news.text
+        body = (st and st.get("body")) or news.text
 
         caption = (
-            f"<b>{html.escape(title)}</b>\n\n"
             f"{html.escape(body)}\n\n"
-            f"{PROMO_FOOTER}\n\n"
             f"{name_chanel}"
         )
         if len(caption) > 1024:
