@@ -1,9 +1,10 @@
 import re
 
-from telethon import events, Button
+from telethon import events
 
 from bot_v1.news.api import ServiceNews
 from bot_v1.news.service import NewsServie
+from config.settings import settings
 from main import bot_client
 
 service_news = ServiceNews()
@@ -14,8 +15,9 @@ name_chanel = "@newslyandia"
 
 news_service = NewsServie()
 
-@bot_client.on(events.NewMessage(pattern=r'^/news$'))
+@bot_client.on(events.NewMessage(from_users=settings.CHANEL_ADMINS, pattern=r'^/news$'))
 async def show_news_list(event):
+    print(event.sender_id)
     await news_service.show_news_list(event)
 
 @bot_client.on(events.CallbackQuery(data=re.compile(b"^preview_\\d+$")))
@@ -31,7 +33,7 @@ async def fulltext_handler(event):
 async def edit_start_handler(event):
     await news_service.edit_start_news_item(event)
 
-@bot_client.on(events.NewMessage())
+@bot_client.on(events.NewMessage(from_users=settings.CHANEL_ADMINS))
 async def edit_receive_handler(event):
     await news_service.edit_receive_news_item(event)
 

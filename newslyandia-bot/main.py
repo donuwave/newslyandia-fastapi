@@ -12,7 +12,7 @@ import bot_v1.news.handler
 import bot_v1.contest.handler
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     await bot_client.start(bot_token=settings.BOT_TOKEN)
     print("🤖 Telegram bot started")
 
